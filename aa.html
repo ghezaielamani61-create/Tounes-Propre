@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Tounes Propre – Collecte intelligente des déchets</title>
+<style>
+:root{--bg:#FAF3E3;--card:#fff;--tx:#3B2A1A;--mut:#7a6650;--ac:#C8742B;--ok:#3F7D4E;--mid:#D99A00;--bad:#C0392B;--line:#e6d7b9;--map:#f3e7cb;--lake:#bcd7e6;color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1b1610;--card:#2a2219;--tx:#f3e8d2;--mut:#b9a688;--ac:#e08a3c;--ok:#5fb374;--mid:#e8b631;--bad:#e5645a;--line:#41352a;--map:#332a1e;--lake:#27475a;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#1b1610;--card:#2a2219;--tx:#f3e8d2;--mut:#b9a688;--ac:#e08a3c;--ok:#5fb374;--mid:#e8b631;--bad:#e5645a;--line:#41352a;--map:#332a1e;--lake:#27475a;color-scheme:dark}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font-family:Georgia,"Times New Roman",serif}
+header{background:linear-gradient(to right,var(--ac),#E8C07D);color:#fff;padding:18px 16px;text-align:center}
+header h1{margin:0;font-size:1.6rem}header p{margin:6px 0 0}
+nav{display:flex;justify-content:center;gap:8px;flex-wrap:wrap;padding:10px;background:var(--card);border-bottom:1px solid var(--line)}
+nav a{padding:8px 14px;border-radius:20px;text-decoration:none;color:var(--tx);border:1px solid var(--line)}
+nav a.on{background:var(--ok);color:#fff;border-color:var(--ok)}
+main{max-width:1150px;margin:0 auto;padding:16px}
+.view{display:none}.view.on{display:block}
+.g{display:grid;gap:16px;grid-template-columns:1.4fr 1fr}
+@media(max-width:800px){.g{grid-template-columns:1fr}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:16px}
+.narrow{max-width:540px;margin:0 auto}
+h2{margin:0 0 10px;font-size:1.1rem;color:var(--ok);border-bottom:2px solid var(--line);padding-bottom:4px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kpi{text-align:center;background:var(--bg);border-radius:8px;padding:8px}
+.kpi b{display:block;font-size:1.4rem}.kpi span{font-size:.8rem;color:var(--mut)}
+svg{width:100%;height:auto;display:block;border-radius:8px;background:var(--map)}
+.bin{cursor:pointer}.pc{font:bold 11px Arial,sans-serif;fill:#fff;pointer-events:none}.lb{font:10px Arial,sans-serif;fill:var(--tx)}
+button{background:var(--ok);color:#fff;border:0;border-radius:6px;padding:9px 14px;font-size:.95rem;cursor:pointer;margin:3px 3px 3px 0;font-family:inherit}
+button.alt{background:var(--ac)}button.gh{background:var(--mut)}button.sm{padding:5px 9px;font-size:.8rem}button:hover{opacity:.9}
+label{display:block;margin:8px 0 3px;font-size:.9rem;color:var(--mut)}
+input,select,textarea{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--tx);font-family:inherit}
+input[type=range]{padding:0}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--mut);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px}
+ol,ul{padding-left:20px;margin:6px 0}small,.note{color:var(--mut);font-size:.8rem}
+.res,.tw{overflow-x:auto}
+.msg{background:var(--bg);border:1px solid var(--ok);border-radius:8px;padding:10px;margin-top:12px}
+.badge{display:inline-block;padding:2px 8px;border-radius:12px;color:#fff;font-size:.8rem;white-space:nowrap}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{border-bottom:1px solid var(--line);padding:6px;text-align:left;vertical-align:top}
+.ri{border-bottom:1px solid var(--line);padding:6px 0;font-size:.9rem}
+img.th{width:46px;height:46px;object-fit:cover;border-radius:6px;vertical-align:middle}
+textarea{height:120px;font-family:monospace;font-size:.75rem}
+</style>
+</head>
+<body>
+<header><h1>🗑️ Tounes Propre</h1><p>Collecte intelligente des déchets : priorité, prédiction et tournées optimisées</p></header>
+<nav id="nav"></nav>
+<main>
+
+<section id="v-citoyen" class="view">
+  <div class="card narrow">
+    <h2>Signaler un problème</h2>
+    <p class="note">Bac plein, décharge sauvage, bac cassé ? La municipalité sera informée.</p>
+    <form id="rf">
+      <label for="rt">Type de problème</label>
+      <select id="rt"><option>Bac plein</option><option>Décharge sauvage</option><option>Bac cassé</option></select>
+      <label for="rz">Zone</label>
+      <select id="rz"></select>
+      <button type="button" class="gh sm" id="gps">📍 Utiliser ma position</button> <small id="gpsn"></small>
+      <label for="rp">Photo (facultatif)</label>
+      <input id="rp" type="file" accept="image/*">
+      <label for="rd">Description (facultatif)</label>
+      <input id="rd" type="text" maxlength="80" placeholder="Ex. : déchets devant l’école">
+      <button type="submit">📢 Envoyer le signalement</button>
+    </form>
+    <div id="ok" class="msg" hidden></div>
+  </div>
+</section>
+
+<section id="v-agents" class="view">
+  <div class="card narrow">
+    <h2>🔐 Espace agents municipaux</h2>
+    <p class="note">Réservé au personnel de la municipalité et du service de collecte.</p>
+    <form id="lf">
+      <label for="lp">Mot de passe</label>
+      <input id="lp" type="password" autocomplete="current-password">
+      <button type="submit">Se connecter</button>
+    </form>
+    <div id="le" class="msg" style="border-color:var(--bad)" hidden>Mot de passe incorrect.</div>
+  </div>
+</section>
+
+<section id="v-municipalite" class="view">
+  <div class="g">
+    <div>
+      <div class="card">
+        <h2>Carte des bacs (positions approximatives)</h2>
+        <svg id="map" viewBox="0 0 600 400" role="img" aria-label="Carte des bacs de collecte">
+          <ellipse cx="254" cy="209" rx="45" ry="16" fill="var(--lake)"/>
+          <path d="M0 330 L600 120 M120 0 L300 400 M0 120 L600 300" stroke="var(--line)" stroke-width="6" fill="none"/>
+          <g id="dyn"></g>
+        </svg>
+        <div class="legend">
+          <span><i style="background:var(--ok)"></i>&lt; 50 %</span>
+          <span><i style="background:var(--mid)"></i>50 à 79 %</span>
+          <span><i style="background:var(--bad)"></i>80 % et plus</span>
+          <span>⚠️ signalement ouvert</span>
+        </div>
+        <div id="info" class="note" style="margin-top:8px">Cliquez sur un bac pour voir son détail.</div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Tableau de bord</h2>
+        <div class="kpis">
+          <div class="kpi"><b id="k1">0</b><span>bacs critiques</span></div>
+          <div class="kpi"><b id="k2">0 %</b><span>remplissage moyen</span></div>
+          <div class="kpi"><b id="k3">0</b><span>signalements ouverts</span></div>
+        </div>
+        <button id="sim">⏩ Simuler un jour</button>
+        <button class="gh" id="reset">↺ Réinitialiser</button>
+      </div>
+      <div class="card">
+        <h2>Tournées optimisées</h2>
+        <label for="thr">Score de priorité minimum : <b id="thv">50</b> %</label>
+        <input type="range" id="thr" min="0" max="100" value="50" step="5">
+        <div class="row">
+          <div><label for="nk">Camions</label><select id="nk"><option>1</option><option>2</option><option>3</option></select></div>
+          <div><label for="cap">Capacité (litres)</label><input id="cap" type="number" value="1500" min="200" step="100"></div>
+        </div>
+        <button class="alt" id="calc">🚚 Calculer</button>
+        <button id="done">✅ Collecter</button>
+        <div id="res" class="res note">Cliquez sur « Calculer ».</div>
+      </div>
+      <div class="card"><h2>Signalements à traiter</h2><div id="adm" class="note">Aucun signalement.</div></div>
+    </div>
+  </div>
+</section>
+
+<section id="v-suivi" class="view">
+  <div class="card">
+    <h2>Suivi des signalements</h2>
+    <div class="kpis">
+      <div class="kpi"><b id="s1">0</b><span>📩 Reçus</span></div>
+      <div class="kpi"><b id="s2">0</b><span>👀 Repérés</span></div>
+      <div class="kpi"><b id="s3">0</b><span>✅ Vidés / traités</span></div>
+    </div>
+    <div class="tw" id="sv" style="margin-top:12px"></div>
+  </div>
+</section>
+
+<section id="v-analyse" class="view">
+  <div class="g">
+    <div>
+      <div class="card">
+        <h2>Scénarios (selon le nombre de camions et la capacité réglés par la municipalité)</h2>
+        <div class="tw" id="sc"></div>
+        <p class="note">Référence : 1 camion qui visite tous les bacs dans un ordre fixe. Estimation du CO₂ avec des valeurs fixes : détour routier 1,3 ; consommation 35 L/100 km ; émission 2,65 kg CO₂/L (hypothèses à sourcer dans le rapport).</p>
+      </div>
+      <div class="card">
+        <h2>Historique du remplissage moyen</h2>
+        <div id="ch"></div>
+      </div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>Export des données</h2>
+        <textarea id="csv" readonly></textarea>
+        <button id="dl">⬇️ Télécharger le CSV</button>
+        <p class="note">Si le téléchargement est bloqué, copiez le texte ci-dessus.</p>
+      </div>
+    </div>
+  </div>
+</section>
+</main>
+
+<script>
+var H={conso:35,fe:2.65,det:1.3};
+var depot={n:"Dépôt",lat:36.775,lng:10.145};
+var ZONES=[["Av. Habib Bourguiba",36.800,10.180,1],["Médina",36.797,10.166,2],["Bab Saadoun",36.812,10.155,1],["Le Bardo",36.809,10.137,0],["El Menzah",36.838,10.150,0],["Ariana Centre",36.862,10.195,1],["Lac 1",36.832,10.230,0],["Lac 2",36.848,10.272,0],["La Goulette",36.818,10.305,0],["La Marsa",36.878,10.325,0],["Ben Arous",36.753,10.231,0],["El Mourouj",36.732,10.210,0]];
+var STAT={recu:["📩 Reçu","var(--mid)"],repere:["👀 Repéré","var(--ac)"],vide:["✅ Vidé / traité","var(--ok)"]};
+var COL=["#C8742B","#1F6FA8","#8E44AD"];
+var KEY="tp-state2",bins,reports,nextId,gh,cur=null,sel=null,gpsPos=null;
+
+function xy(p){p.x=20+(p.lng-10.12)/0.24*560;p.y=20+(36.90-p.lat)/0.19*360;}
+function hv(a,b){var R=6371,r=Math.PI/180,dl=(b.lat-a.lat)*r,dn=(b.lng-a.lng)*r,h=Math.sin(dl/2)*Math.sin(dl/2)+Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dn/2)*Math.sin(dn/2);return 2*R*Math.asin(Math.sqrt(h));}
+function d(a,b){return hv(a,b)*H.det;}
+function esc(s){return String(s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];});}
+function col(f){return f>=80?"var(--bad)":f>=50?"var(--mid)":"var(--ok)";}
+function $(i){return document.getElementById(i);}
+function badge(s){return'<span class="badge" style="background:'+STAT[s][1]+'">'+STAT[s][0]+'</span>';}
+
+/* ---------- données ---------- */
+function newBins(){return ZONES.map(function(a,i){var f=Math.round(15+Math.random()*75);return{id:i+1,n:a[0],lat:a[1],lng:a[2],sens:a[3],f:f,age:Math.floor(Math.random()*3),rt:8+Math.random()*22,hist:[f]};});}
+function reinit(){bins=newBins();reports=[];nextId=1;gh=[];cur=null;sel=null;bins.forEach(xy);snap();save();}
+function load(){
+  try{var s=JSON.parse(localStorage.getItem(KEY));
+    if(s&&s.bins&&s.bins[0]&&s.bins[0].lat!==undefined&&s.reports){bins=s.bins;reports=s.reports;nextId=s.nextId||1;gh=s.gh||[];bins.forEach(xy);return true;}
+  }catch(e){}
+  return false;
+}
+function save(){
+  var o={bins:bins,reports:reports,nextId:nextId,gh:gh};
+  try{localStorage.setItem(KEY,JSON.stringify(o));}
+  catch(e){try{o.reports=reports.map(function(r){var c=Object.assign({},r);c.photo=null;return c;});localStorage.setItem(KEY,JSON.stringify(o));}catch(e2){}}
+}
+function snap(){gh.push({avg:Math.round(bins.reduce(function(t,b){return t+b.f;},0)/bins.length),crit:bins.filter(function(b){return b.f>=80;}).length});if(gh.length>40)gh.shift();}
+function openR(){return reports.filter(function(r){return r.s!=="vide";});}
+function wt(b){return openR().filter(function(r){return r.bin===b.id-1;}).reduce(function(t,r){return t+r.n;},0);}
+function conf(b){return b.f>=70&&openR().some(function(r){return r.bin===b.id-1&&r.t==="Bac plein";});}
+function score(b){return Math.round(0.6*b.f+20*Math.min(wt(b),3)/3+10*Math.min(b.age,5)/5+5*b.sens/2+(conf(b)?5:0));}
+function rate(b){
+  var h=b.hist.slice(-5),p=[];
+  for(var i=1;i<h.length;i++){if(h[i]-h[i-1]>0)p.push(h[i]-h[i-1]);}
+  return p.length?p.reduce(function(t,x){return t+x;},0)/p.length:null;
+}
+function pred(b){
+  if(b.f>=100)return "plein";
+  var r=rate(b);if(!r)return "–";
+  return "≈ "+Math.round((100-b.f)/r*24)+" h";
+}
+
+/* ---------- tournées : balayage + plus proche voisin + 2-opt ---------- */
+function len(r){if(!r.length)return 0;var t=0,c=depot;r.forEach(function(b){t+=d(c,b);c=b;});return t+d(c,depot);}
+function opt(r){
+  var p=[depot].concat(r,[depot]),im=true;
+  while(im){im=false;
+    for(var i=1;i<p.length-2;i++)for(var j=i+1;j<p.length-1;j++){
+      if(d(p[i-1],p[j])+d(p[i],p[j+1])<d(p[i-1],p[i])+d(p[j],p[j+1])-1e-9){
+        p=p.slice(0,i).concat(p.slice(i,j+1).reverse(),p.slice(j+1));im=true;
+      }
+    }
+  }
+  return p.slice(1,-1);
+}
+function plan(th,k,cap){
+  var T=bins.filter(function(b){return score(b)>=th;});
+  T.sort(function(a,b){return Math.atan2(a.y-depot.y,a.x-depot.x)-Math.atan2(b.y-depot.y,b.x-depot.x);});
+  var routes=[],defer=[],per=Math.ceil(T.length/k)||1;
+  for(var i=0;i<k;i++){
+    var rest=T.slice(i*per,(i+1)*per),c=depot,load=0,r=[];
+    while(rest.length){
+      rest.sort(function(a,b){return d(c,a)-d(c,b);});
+      var n=rest.shift(),v=n.f*2.4;
+      if(load+v>cap){defer.push(n);continue;}
+      load+=v;r.push(n);c=n;
+    }
+    r=opt(r);
+    routes.push({pts:r,km:len(r),load:Math.round(load)});
+  }
+  var km=routes.reduce(function(t,x){return t+x.km;},0);
+  return{routes:routes,defer:defer,km:km,base:len(bins)};
+}
+function co2(km){return km*H.conso/100*H.fe;}
+
+/* ---------- affichage ---------- */
+var MOT_DE_PASSE="Tounes2026"; // mot de passe unique des agents : à changer
+var PROT=["municipalite"],auth=false;
+try{auth=sessionStorage.getItem("tp-auth")==="1";}catch(e){}
+function renderNav(h){
+  var L=[["citoyen","📢 Citoyen"],["suivi","📋 Suivi"],["analyse","📈 Analyse"]];
+  if(auth)L.push(["municipalite","🗺️ Municipalité"]);else L.push(["agents","🔐 Espace agents"]);
+  $("nav").innerHTML=L.map(function(l){return'<a href="#'+l[0]+'" class="'+(l[0]===h?"on":"")+'">'+l[1]+"</a>";}).join("")+(auth?'<a href="#citoyen" id="out">🔒 Déconnexion</a>':"");
+  var o=$("out");
+  if(o)o.onclick=function(){auth=false;try{sessionStorage.removeItem("tp-auth");}catch(e){}setTimeout(show,0);};
+}
+function show(){
+  var h=(location.hash||"").slice(1),V=["citoyen","suivi","agents","municipalite","analyse"];
+  if(V.indexOf(h)<0)h="citoyen";
+  if(PROT.indexOf(h)>=0&&!auth){location.hash="#agents";return;}
+  if(h==="agents"&&auth){location.hash="#municipalite";return;}
+  V.forEach(function(v){$("v-"+v).classList.toggle("on",v===h);});
+  renderNav(h);
+  renderAll();
+}
+function draw(){
+  var s="";
+  if(cur)cur.routes.forEach(function(r,i){
+    if(!r.pts.length)return;
+    var pts=[depot].concat(r.pts,[depot]).map(function(p){return p.x+","+p.y;}).join(" ");
+    s+='<polyline points="'+pts+'" fill="none" stroke="'+COL[i]+'" stroke-width="3" stroke-dasharray="7 5"/>';
+  });
+  s+='<rect x="'+(depot.x-10)+'" y="'+(depot.y-10)+'" width="20" height="20" rx="4" fill="var(--tx)"/><text x="'+depot.x+'" y="'+(depot.y+26)+'" text-anchor="middle" class="lb">Dépôt</text>';
+  bins.forEach(function(b){
+    s+='<g class="bin" data-id="'+b.id+'" tabindex="0" role="button" aria-label="'+esc(b.n)+' '+b.f+' pour cent">'
+      +'<circle cx="'+b.x+'" cy="'+b.y+'" r="'+(sel===b.id?17:13)+'" fill="'+col(b.f)+'" stroke="var(--card)" stroke-width="3"/>'
+      +'<text x="'+b.x+'" y="'+(b.y+4)+'" text-anchor="middle" class="pc">'+b.f+'</text>'
+      +'<text x="'+b.x+'" y="'+(b.y+27)+'" text-anchor="middle" class="lb">'+esc(b.n)+'</text></g>';
+    if(wt(b)>0)s+='<text x="'+(b.x+13)+'" y="'+(b.y-11)+'" font-size="15">⚠️</text>';
+  });
+  $("dyn").innerHTML=s;
+  $("k1").textContent=bins.filter(function(b){return b.f>=80;}).length;
+  $("k2").textContent=Math.round(bins.reduce(function(t,b){return t+b.f;},0)/bins.length)+" %";
+  $("k3").textContent=openR().length;
+  var el=$("info");
+  if(sel===null){el.textContent="Cliquez sur un bac pour voir son détail.";return;}
+  var b=bins[sel-1];
+  el.innerHTML="<b>"+esc(b.n)+"</b> : "+b.f+" % rempli · <b>score "+score(b)+" %</b><br>"
+    +"Plein dans : "+pred(b)+" · dernière collecte il y a "+b.age+" j · sensibilité "+b.sens+" · signalements ouverts : "+wt(b)+(conf(b)?" · ✔ confirmé par le capteur":"")
+    +'<br><button class="gh sm" onclick="vider('+b.id+')">Vider ce bac</button> '
+    +'<input id="cn" type="number" min="0" max="100" placeholder="% capteur" style="width:90px;display:inline-block;padding:4px"> '
+    +'<button class="alt sm" onclick="recevoirCapteur('+b.id+',$(\'cn\').value)">📡 Mesure capteur</button>';
+}
+function renderAdm(){
+  var o=openR(),el=$("adm");
+  if(!o.length){el.textContent="Aucun signalement à traiter.";return;}
+  el.innerHTML=o.map(function(r){
+    var b=bins[r.bin];
+    return'<div class="ri"><b>#'+r.id+" "+esc(r.t)+(r.n>1?" ×"+r.n:"")+"</b> – "+esc(b.n)+(r.d?" : "+esc(r.d):"")
+      +(conf(b)&&r.t==="Bac plein"?" ✔ confirmé capteur":"")+(r.gps?" 📍":"")+"<br>"
+      +(r.photo?'<img class="th" src="'+r.photo+'" alt="photo du signalement"> ':"")+badge(r.s)+" "
+      +(r.s==="recu"?'<button class="alt sm" onclick="setStat('+r.id+',\'repere\')">Marquer repéré</button>':"")
+      +'<button class="sm" onclick="setStat('+r.id+',\'vide\')">Marquer vidé / traité</button></div>';
+  }).join("");
+}
+function renderSuivi(){
+  ["recu","repere","vide"].forEach(function(k,i){$("s"+(i+1)).textContent=reports.filter(function(r){return r.s===k;}).length;});
+  var el=$("sv");
+  if(!reports.length){el.innerHTML='<p class="note">Aucun signalement pour le moment.</p>';return;}
+  el.innerHTML="<table><tr><th>N°</th><th>Date</th><th>Type</th><th>Zone</th><th>Nb</th><th>Détails</th><th>Statut</th></tr>"
+    +reports.slice().reverse().map(function(r){
+      return"<tr><td>"+r.id+"</td><td>"+esc(r.date)+"</td><td>"+esc(r.t)+"</td><td>"+esc(bins[r.bin].n)+"</td><td>"+r.n+"</td><td>"+esc(r.d||"–")+(r.gps?" 📍":"")+(r.photo?' <img class="th" src="'+r.photo+'" alt="photo">':"")+"</td><td>"+badge(r.s)+"</td></tr>";
+    }).join("")+"</table>";
+}
+function renderAnalyse(){
+  var k=+$("nk").value,cap=+$("cap").value||1500;
+  var rows=[35,50,65].map(function(th){
+    var p=plan(th,k,cap),v=p.routes.reduce(function(t,r){return t+r.pts.length;},0);
+    var sv=co2(p.base-p.km);
+    return"<tr><td>≥ "+th+" %</td><td>"+v+" / "+bins.length+"</td><td>"+p.defer.length+"</td><td>"+p.km.toFixed(1)+" km</td><td>"+p.base.toFixed(1)+" km</td><td>"+(sv>0?sv.toFixed(1)+" kg":"–")+"</td></tr>";
+  }).join("");
+  $("sc").innerHTML="<table><tr><th>Score</th><th>Bacs visités</th><th>Reportés</th><th>Distance</th><th>Référence</th><th>CO₂ évité (estim.)</th></tr>"+rows+"</table>";
+  var n=gh.length,c=$("ch");
+  if(n<2){c.innerHTML='<p class="note">Cliquez sur « Simuler un jour » (page Municipalité) pour construire l’historique.</p>';}
+  else{
+    var pts=gh.map(function(x,i){return(20+i/(n-1)*560).toFixed(0)+","+(140-x.avg*1.2).toFixed(0);}).join(" ");
+    c.innerHTML='<svg viewBox="0 0 600 160"><line x1="20" y1="140" x2="580" y2="140" stroke="var(--line)"/><line x1="20" y1="20" x2="20" y2="140" stroke="var(--line)"/>'
+      +'<polyline points="'+pts+'" fill="none" stroke="var(--ac)" stroke-width="3"/>'
+      +'<text x="24" y="16" class="lb">100 %</text><text x="24" y="154" class="lb">0 %</text></svg><p class="note">Remplissage moyen après chaque simulation ou collecte.</p>';
+  }
+  var cs="id,zone,lat,lng,niveau,score_pct,age_jours,sensibilite\n"+bins.map(function(b){return[b.id,'"'+b.n+'"',b.lat,b.lng,b.f,score(b),b.age,b.sens].join(",");}).join("\n")
+    +"\n\nid,type,zone,description,statut,nb,date\n"+reports.map(function(r){return[r.id,'"'+r.t+'"','"'+bins[r.bin].n+'"','"'+(r.d||"").replace(/"/g,"'")+'"',r.s,r.n,'"'+r.date+'"'].join(",");}).join("\n");
+  $("csv").value=cs;
+}
+function renderAll(){draw();renderAdm();renderSuivi();renderAnalyse();}
+
+/* ---------- actions ---------- */
+function setStat(id,s){
+  var r=reports.filter(function(x){return x.id===id;})[0];if(!r)return;
+  r.s=s;if(s==="vide"&&r.t==="Bac plein"){bins[r.bin].f=0;bins[r.bin].age=0;bins[r.bin].hist.push(0);}
+  save();renderAll();
+}
+function vider(id){var b=bins[id-1];b.f=0;b.age=0;b.hist.push(0);cur=null;snap();save();renderAll();}
+function recevoirCapteur(id,niv){
+  var v=Math.max(0,Math.min(100,Math.round(+niv)));if(isNaN(v))return;
+  var b=bins[id-1];if(!b)return;
+  b.f=v;b.hist.push(v);cur=null;snap();save();renderAll();
+}
+window.recevoirCapteur=recevoirCapteur;
+function calc(){
+  var th=+$("thr").value,k=+$("nk").value,cap=+$("cap").value||1500;
+  cur=plan(th,k,cap);draw();
+  var res=$("res"),n=cur.routes.reduce(function(t,r){return t+r.pts.length;},0);
+  if(!n&&!cur.defer.length){res.textContent="Aucun bac n’atteint ce score : les camions restent au dépôt.";return;}
+  var h=cur.routes.map(function(r,i){
+    return'<p><b style="color:'+COL[i]+'">🚚 Camion '+(i+1)+"</b> : "+r.load+" / "+cap+" L · "+r.km.toFixed(1)+" km</p><ol>"
+      +r.pts.map(function(b){return"<li>"+esc(b.n)+" (niveau "+b.f+" %, score "+score(b)+" %, plein dans "+pred(b)+")</li>";}).join("")+"</ol>";
+  }).join("");
+  var g=Math.round((1-cur.km/cur.base)*100),sv=co2(cur.base-cur.km);
+  res.innerHTML=h+(cur.defer.length?"<p>⏭️ <b>Reportés (camion plein) :</b> "+cur.defer.map(function(b){return esc(b.n);}).join(", ")+"</p>":"")
+    +"<p><b>Total :</b> "+cur.km.toFixed(1)+" km · <b>référence (1 camion, tous les bacs) :</b> "+cur.base.toFixed(1)+" km<br><b>Gain de distance :</b> "+g+" %"
+    +(sv>0?" · <b>CO₂ évité (estimation) :</b> "+sv.toFixed(1)+" kg":"")+"</p>"
+    +"<small>Méthode : balayage par secteur, plus proche voisin avec capacité, puis amélioration 2-opt. Distances = vol d’oiseau × facteur de détour.</small>";
+}
+$("map").addEventListener("click",function(e){var g=e.target.closest(".bin");if(g){sel=+g.dataset.id;draw();}});
+$("map").addEventListener("keydown",function(e){var g=e.target.closest&&e.target.closest(".bin");if(g&&e.key==="Enter"){sel=+g.dataset.id;draw();}});
+$("sim").onclick=function(){
+  bins.forEach(function(b){b.f=Math.min(100,Math.round(b.f+b.rt*(0.7+Math.random()*0.6)));b.age++;b.hist.push(b.f);if(b.hist.length>30)b.hist.shift();});
+  cur=null;snap();save();renderAll();$("res").textContent="Niveaux mis à jour. Recalculez les tournées.";
+};
+$("reset").onclick=function(){reinit();renderAll();$("res").textContent="Cliquez sur « Calculer ».";};
+$("calc").onclick=calc;
+$("done").onclick=function(){
+  if(!cur)return;
+  cur.routes.forEach(function(r){r.pts.forEach(function(b){
+    b.f=0;b.age=0;b.hist.push(0);
+    reports.forEach(function(x){if(x.bin===b.id-1&&x.t==="Bac plein"&&x.s!=="vide")x.s="vide";});
+  });});
+  cur=null;snap();save();renderAll();
+  $("res").textContent="Bacs collectés et remis à 0 %. Les signalements « Bac plein » correspondants sont marqués vidés.";
+};
+$("thr").oninput=function(){$("thv").textContent=this.value;};
+["nk","cap"].forEach(function(i){$(i).onchange=renderAnalyse;});
+$("lf").addEventListener("submit",function(e){
+  e.preventDefault();
+  if($("lp").value===MOT_DE_PASSE){
+    auth=true;try{sessionStorage.setItem("tp-auth","1");}catch(e2){}
+    $("lp").value="";$("le").hidden=true;location.hash="#municipalite";
+  }else{$("le").hidden=false;}
+});
+$("dl").onclick=function(){try{var a=document.createElement("a");a.href=URL.createObjectURL(new Blob([$("csv").value],{type:"text/csv"}));a.download="tounes-propre.csv";a.click();}catch(e){$("csv").select();}};
+
+/* ---------- signalement citoyen ---------- */
+$("rz").innerHTML=ZONES.map(function(a,i){return'<option value="'+i+'">'+esc(a[0])+"</option>";}).join("");
+$("gps").onclick=function(){
+  var n=$("gpsn");
+  if(!navigator.geolocation){n.textContent="Position non disponible.";return;}
+  n.textContent="Recherche…";
+  navigator.geolocation.getCurrentPosition(function(p){
+    gpsPos={lat:p.coords.latitude,lng:p.coords.longitude};
+    var best=0,bd=1e9;
+    bins.forEach(function(b,i){var x=hv(gpsPos,b);if(x<bd){bd=x;best=i;}});
+    $("rz").value=best;
+    n.textContent="Zone la plus proche : "+bins[best].n+" (à "+bd.toFixed(1)+" km)";
+  },function(){n.textContent="Position refusée ou indisponible : choisissez la zone.";},{timeout:8000});
+};
+function shrink(file,cb){
+  var fr=new FileReader();
+  fr.onload=function(){var im=new Image();
+    im.onload=function(){var s=Math.min(1,200/Math.max(im.width,im.height)),c=document.createElement("canvas");c.width=Math.round(im.width*s);c.height=Math.round(im.height*s);c.getContext("2d").drawImage(im,0,0,c.width,c.height);cb(c.toDataURL("image/jpeg",0.6));};
+    im.onerror=function(){cb(null);};im.src=fr.result;};
+  fr.onerror=function(){cb(null);};fr.readAsDataURL(file);
+}
+function addReport(photo){
+  var t=$("rt").value,bin=+$("rz").value,m=$("ok"),dup=reports.filter(function(r){return r.bin===bin&&r.t===t&&r.s!=="vide";})[0];
+  m.hidden=false;
+  if(dup){
+    dup.n++;if(photo&&!dup.photo)dup.photo=photo;
+    m.innerHTML="✅ Merci ! Ce problème était déjà signalé : votre signalement est <b>fusionné avec le n°"+dup.id+"</b> ("+dup.n+" signalements, priorité renforcée). <a href=\"#suivi\">Suivre</a>";
+  }else{
+    var r={id:nextId++,t:t,bin:bin,d:$("rd").value.trim(),s:"recu",n:1,photo:photo||null,gps:gpsPos,
+      date:new Date().toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit"})};
+    reports.push(r);
+    m.innerHTML="✅ Merci ! Votre signalement <b>n°"+r.id+"</b> a été envoyé. <a href=\"#suivi\">Suivre son traitement</a>";
+  }
+  cur=null;save();$("rd").value="";$("rp").value="";gpsPos=null;$("gpsn").textContent="";renderAll();
+}
+$("rf").addEventListener("submit",function(e){
+  e.preventDefault();
+  var f=$("rp").files[0];
+  if(f)shrink(f,addReport);else addReport(null);
+});
+window.addEventListener("hashchange",show);
+window.addEventListener("storage",function(){if(load()){cur=null;renderAll();}});
+
+if(!load())reinit();
+xy(depot);
+show();
+</script>
+</body>
+</html>
